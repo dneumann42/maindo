@@ -1,2 +1,2 @@
 # maindo
-Markdown as a database
+Markdown based project and task management from the commandline
