@@ -4,6 +4,8 @@ import db_tables
 import queries/queries
 import mutations/mutations
 
+export queries, mutations
+
 type Gateways* = object
   db: DbConn
   queries*: Queries
@@ -16,6 +18,7 @@ template transaction(self: Gateways, blk: untyped): auto =
 
 proc init*(T: type Gateways): T =
   var db = open("data.db", "", "", "")
+  db.exec sql "PRAGMA foreign_keys = ON"
   result = T(
     db: db,
     queries: Queries.init(db),
@@ -31,3 +34,5 @@ when isMainModule:
     gateways.mutations.status.addStatus("working")
     gateways.mutations.status.addStatus("review")
     gateways.mutations.status.addStatus("completed")
+
+  # gateways.mutations.projects.createProject("Corp")

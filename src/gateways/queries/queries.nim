@@ -1,12 +1,16 @@
 import db_connector/db_sqlite
 
-import tasks
-export tasks
+import tasks, projects, notes
+export tasks, projects, notes
 
 type Queries* = object
-  task*: TaskQueries 
+  tasks*: TaskQueries 
+  projects*: ProjectQueries
+  notes*: NoteQueries
 
 proc init*(T: type Queries, db: DbConn): T =
   result = T(
-    task: TaskQueries.init(db)
+    tasks: TaskQueries.init(db),
+    projects: ProjectQueries.init(db),
+    notes: NoteQueries.init(db),
   )
