@@ -1,2 +1,3 @@
 maindo
 *.db
+.cache/
