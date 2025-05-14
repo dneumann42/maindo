@@ -27,6 +27,13 @@ static const char *Mdo_ValueType_repr[] = {
 };
 #undef VALUE_TYPE
 
+enum Mdo_ReaderError {
+  READER_ERROR_NONE,
+  READER_ERROR_INVALID_VALUE,
+  READER_ERROR_INVALID_NUMBER,
+  READER_ERROR_INVALID_SYMBOL,
+};
+
 typedef struct Mdo_str_t {
   size_t len;
   char *data;
@@ -147,7 +154,14 @@ char *to_str_rec(Mdo_value *v, int depth) {
   case CONS:
   case DO: {
     int cursor = 0;
-    buff[cursor++] = '(';
+    if (v->type == DO) {
+      buff[cursor++] = '(';
+      buff[cursor++] = 'd';
+      buff[cursor++] = 'o';
+      buff[cursor++] = ' ';
+    } else {
+      buff[cursor++] = '(';
+    }
     Mdo_value *it = v;
     while (it != NULL) {
       char *sub = to_str_rec(it->car, depth + 1);
@@ -176,8 +190,8 @@ char *to_str_rec(Mdo_value *v, int depth) {
   return buff;
 }
 
-Mdo_value *do_cons(Mdo_allocator alloc, Mdo_value *car, Mdo_value *cdr) {
-  return new_init(alloc, (Mdo_value){.type = DO, .car = car, .cdr = cdr});
+Mdo_value *cons(Mdo_allocator alloc, Mdo_value *car, Mdo_value *cdr, int type) {
+  return new_init(alloc, (Mdo_value){.type = type, .car = car, .cdr = cdr});
 }
 
 Mdo_value *reversed(Mdo_value *list) {
@@ -207,7 +221,7 @@ Mdo_value *mdo_read_code(Mdo_reader *reader, Mdo_str code) {
   Mdo_value *program = NULL;
   while (!at_eof(reader, code)) {
     Mdo_value *expr = mdo_read_expression(reader, code);
-    program = do_cons(reader->alloc, expr, program);
+    program = cons(reader->alloc, expr, program, DO);
     skip_ws(reader, code);
   }
   return reversed(program);
@@ -240,31 +254,16 @@ Mdo_value *mdo_read_sequence(Mdo_reader *reader, Mdo_str code, int type) {
     return NULL;
   reader->cursor += 1;
   Mdo_value *list = NULL;
-  Mdo_value *call = NULL;
   while (!at_eof(reader, code)) {
     skip_ws(reader, code);
-    if (at_chr(reader, code, ')'))
+    if (at_chr(reader, code, ')')) {
+      reader->cursor += 1;
       break;
-    Mdo_value *exp = mdo_read_expression(reader, code);
-    if (list == NULL) {
-      list = reader->alloc.new(sizeof(Mdo_value));
-      list->type = type;
-      list->car = ref(exp);
-      list->cdr = NULL;
-      call = list;
-    } else {
-      Mdo_value *head = reader->alloc.new(sizeof(Mdo_value));
-      head->type = type;
-      head->cdr = list;
-      head->car = ref(exp);
-      list = head;
     }
+    Mdo_value *exp = mdo_read_expression(reader, code);
+    list = cons(reader->alloc, exp, list, type);
   }
-  if (call == NULL) {
-    call = reader->alloc.new(sizeof(Mdo_value));
-    call->type = type;
-  }
-  return call;
+  return reversed(list);
 }
 
 Mdo_value *mdo_read_symbol(Mdo_reader *reader, Mdo_str code);
@@ -272,7 +271,7 @@ Mdo_value *mdo_read_number(Mdo_reader *reader, Mdo_str code);
 Mdo_value *mdo_read_value(Mdo_reader *reader, Mdo_str code) {
   TRY_PARSE(reader, code, mdo_read_number);
   TRY_PARSE(reader, code, mdo_read_symbol);
-  reader->error = 1;
+  reader->error = READER_ERROR_INVALID_VALUE;
   return NULL;
 }
 
@@ -283,25 +282,41 @@ Mdo_value *mdo_read_number(Mdo_reader *reader, Mdo_str code) {
   while (!at_eof(reader, code) && isdigit(chr(reader, code)))
     reader->cursor += 1;
   if (start == reader->cursor) {
-    reader->error = 3; // INVALID NUMBER
+    reader->error = READER_ERROR_INVALID_NUMBER;
     return NULL;
   }
   char cstr[128];
-  sprintf(cstr, "%.*s", (int)(reader->cursor - start), code.data);
+  sprintf(cstr, "%.*s", (int)(reader->cursor - start), code.data + start);
   return new_init(reader->alloc, (Mdo_value){
                                      .type = NUMBER,
                                      .number = atof(cstr),
                                  });
 }
 
+bool is_special(char chr) {
+  switch (chr) {
+  case ',':
+  case ':':
+  case '[':
+  case ']':
+  case '{':
+  case '}':
+  case ')':
+  case '(':
+    return true;
+  }
+  return false;
+}
+
 Mdo_value *mdo_read_symbol(Mdo_reader *reader, Mdo_str code) {
   skip_ws(reader, code);
   size_t start = reader->cursor;
-  while (!at_eof(reader, code) && isspace(chr(reader, code))) {
+  while (!at_eof(reader, code) && !isspace(chr(reader, code)) &&
+         !is_special(chr(reader, code))) {
     reader->cursor += 1;
   }
   if (reader->cursor == start) {
-    reader->error = 2;
+    reader->error = READER_ERROR_INVALID_SYMBOL;
     return NULL;
   }
   Mdo_str symbol = new_str(reader->cursor - start);
@@ -316,7 +331,7 @@ int main(void) {
       .new = Mdo_new,
       .del = Mdo_del,
   };
-  Mdo_str code = new_str_s("123");
+  Mdo_str code = new_str_s("(+ 1 (/ 2 4) 3)");
   Mdo_reader reader = mdo_init_reader(alloc);
   Mdo_value *program = mdo_read_code(&reader, code);
   printf("-> %s\n", to_str_rec(program, 0));
