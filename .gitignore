@@ -2,3 +2,4 @@ maindo
 *.db
 t.c
 t.nim
+.env

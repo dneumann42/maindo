@@ -1,28 +1,29 @@
-import coral
+import std / logging
+import prologue
+import prologue / middlewares / [ utils, staticfile ]
+import urls, gateways, templates, maindo_context
 
-type
-  WorkspacePlugin = ref object of Plugin
+var consoleLog = newConsoleLogger()
+addHandler(consoleLog)
 
-method load(p: WorkspacePlugin) =
-  discard
+proc app() =
+  let 
+    env = loadPrologueEnv(".env")
+    settings = newSettings(
+      appName = env.getOrDefault("appName", "Prologue"),
+      debug = env.getOrDefault("debug", true),
+      port = Port(env.getOrDefault("port", 8080)),
+      secretKey = env.getOrDefault("secretKey", "")
+    )
 
-method update(p: WorkspacePlugin) =
-  discard
+  createTables()
 
-method render(p: WorkspacePlugin, artist: Artist) =
-  let (ww, wh) = artist.windowSize()
-  artist.rect(0, 0, ww.toFloat, wh.toFloat, filled = true, color=DarkBlue)
+  var app = newApp(settings = settings)
+  app.use(staticFileMiddleware(env.get("staticDir")))
+  app.use(debugRequestMiddleware())
+  app.addRoute(urls.urlPatterns, "")
 
-  # draw grid
-  for x in 0 .. 100:
-    artist.line(x.float * 32.0, 0.0, x.float * 32.0, wh.float, color=Blue)
-
-  for y in 0 .. 100:
-    artist.line(0.0, y.float * 32.0, ww.float, y.float * 32.0, color=Blue)
+  app.run(MaindoContext)
 
 when isMainModule:
-  var cfg = ApplicationConfig(width: 1280, height: 720)
-  var app = Application.init(cfg).get()
-  app
-    .add(WorkspacePlugin())
-    .run()
+  app()
