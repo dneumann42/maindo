@@ -5,6 +5,13 @@
   </head>
 
   <body>
-    <h1>Hello, World!!!</h1>
+    <form hx-post="/api/library/new" id="new-library-form">
+      <label>
+        Name
+        <input name="name" type="text">  
+      </label>
+
+      <button type="submit" form="new-library-form">Create</button>
+    </form>
   </body>
 </html>
