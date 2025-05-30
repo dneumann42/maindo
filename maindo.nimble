@@ -7,8 +7,7 @@ license       = "MIT"
 srcDir        = "src"
 bin           = @["maindo"]
 
+
+# Dependencies
+
 requires "nim >= 2.2.4"
-requires "prologue >= 0.6.6"
-requires "db_connector >= 0.1.0"
-requires "nimja >= 0.10.0"
-requires "fsnotify >= 0.1.4"
