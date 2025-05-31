@@ -48,23 +48,25 @@ proc `$`* (col: Col): string =
 proc `$`* (blk: Block): string =
   if blk.kind == Text:
     return blk.text
-  var maxWidth = 0
-  var stbl = newSeq[seq[string]]()
-  var headerCols = collect(for h in blk.header.cols: $h)
-  stbl.add(headerCols)
-  for col in headerCols:
-    maxWidth = max(maxWidth, col.len)
+  var stbl = @[collect(for h in blk.header.cols: $h)]
   for row in blk.rows:
-    var tblRow = collect(for c in row.cols: $c)
-    for col in tblRow:
-      maxWidth = max(maxWidth, col.len)
-    stbl.add(tblRow)
-  
-  proc pad(c: string): string =
-    c.alignLeft(maxWidth, ' ')
-
+    stbl.add(collect(for c in row.cols: $c))
+  var colWidths = newSeq[int]()
+  for colIdx in 0 ..< stbl[0].len:
+    var maxWidth = 0
+    for rowIdx in 0 ..< stbl.len:
+      maxWidth = max(maxWidth, stbl[rowIdx][colIdx].len)   
+    colWidths.add(maxWidth)
+    for rowIdx in 0 ..< stbl.len:
+      stbl[rowIdx][colIdx] = stbl[rowIdx][colIdx].alignleft(maxWidth)
   var lines = collect(
-    for line in stbl: line.mapIt(pad(it)).join("|"))
+    for line in stbl: "| " & line.join(" | ") & " |")
+  var divider = "|" & repeat('-', (lines[0].len) - 2) & "|"
+  var cursor = 0
+  for w in colWidths:
+    cursor += w + 3
+    divider[cursor] = '|'
+  lines.insert(divider, 1)
   result = lines.join("\n")
 
 proc startChar(line: string): int =
@@ -92,7 +94,6 @@ proc parseText* (lines: seq[string], lineIndex: var int): Block =
     if identify(lines[lineIndex]) != Text:
       break
     inc lineIndex
-  
   let textLines = lines[start ..< lineIndex].toSeq()
   result = Block(
     kind: Text,
@@ -147,7 +148,6 @@ proc parseTable* (lines: seq[string], lineIndex: var int): Block =
     discard
   result.header = parseColumns(lines[lineIndex])
   lineIndex += 2 # TODO: validate the table header divider 
-  
   while lineIndex < lines.len:
     if identify(lines[lineIndex]) != Table:
       break

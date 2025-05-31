@@ -3,3 +3,6 @@ maindo
 t.c
 t.nim
 .env
+
+tests/test_tables
+tmp
