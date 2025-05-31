@@ -28,3 +28,14 @@ suite "Markdown parsing":
       check doc.blocks[i - 1].level == i
     let a = ($doc).strip()
     check a == code
+
+  test "We can read code blocks":
+    const code = """
+    ```py
+    def hello():
+      print("Hello!")
+    ```
+    """.strip().unindent()
+
+    let doc = parseBlocks(code)
+    check $doc == code

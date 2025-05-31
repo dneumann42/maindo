@@ -22,6 +22,7 @@ type
     Text
     Table
     Heading
+    Code
 
   Block* = object
     case kind*: BlockKind
@@ -32,7 +33,10 @@ type
       rows*: seq[Row]
     of Heading:
       level*: range[1 .. 6]
-      heading: string
+      heading*: string
+    of Code:
+      lang*: string
+      code*: string
 
   Document* = object
     blocks*: seq[Block]
@@ -54,6 +58,11 @@ proc `$`* (blk: Block): string =
     return blk.text
   if blk.kind == Heading:
     return repeat("#", blk.level) & blk.heading
+  if blk.kind == Code:
+    var parts = @["```" & blk.lang]
+    parts.add(blk.code)
+    parts.add("```")
+    return parts.join("\n")
   assert(blk.kind == Table)
   var stbl = @[collect(for h in blk.header.cols: $h)]
   for row in blk.rows:
@@ -97,6 +106,8 @@ proc identify* (line: string): BlockKind =
   let start = startChar(line)
   if start < 0:
     return
+  if line.len >= 3 and line[start ..< start + 3] == "```":
+    return Code
   if line[start] == '#':
     return Heading
   if line[start] == '|':
@@ -182,6 +193,21 @@ proc parseHeading* (lines: seq[string], lineIndex: var int): Block =
     result.level = (it - start)
   lineIndex += 1
 
+proc parseCode* (lines: seq[string], lineIndex: var int): Block =
+  result = Block(kind: Code, code: "", lang: "")
+  let langLine = lines[lineIndex]
+  let start = startChar(langLine) + 3 # skip ```
+  result.lang = langLine[start ..< langLine.len] 
+  inc lineIndex
+  var codeLines: seq[string] = @[]
+  while lineIndex < lines.len:
+    let line = lines[lineIndex]
+    inc lineIndex
+    if line.strip().startsWith("```"):
+      break
+    codeLines.add(line)
+  result.code = codeLines.join("\n")
+
 proc parseBlocks* (doc: string): Document =
   result.blocks = @[]
   let lines = doc.split(Newlines)
@@ -196,4 +222,6 @@ proc parseBlocks* (doc: string): Document =
         parseTable(lines, lineIndex)
       of Heading:
         parseHeading(lines, lineIndex)
+      of Code:
+        parseCode(lines, lineIndex)
     result.blocks.add(blk)
