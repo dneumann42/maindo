@@ -1,2 +1,9 @@
+import std / parseopt
+
+import markdown
+
+proc cli () =
+  let lines = @[" ### Hello"]
+
 when isMainModule:
-  echo("Hello, World!")
+  cli()

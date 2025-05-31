@@ -21,6 +21,7 @@ type
   BlockKind* = enum
     Text
     Table
+    Heading
 
   Block* = object
     case kind*: BlockKind
@@ -29,6 +30,9 @@ type
     of Table:
       header*: Row
       rows*: seq[Row]
+    of Heading:
+      level*: range[1 .. 6]
+      heading: string
 
   Document* = object
     blocks*: seq[Block]
@@ -48,6 +52,9 @@ proc `$`* (col: Col): string =
 proc `$`* (blk: Block): string =
   if blk.kind == Text:
     return blk.text
+  if blk.kind == Heading:
+    return repeat("#", blk.level) & blk.heading
+  assert(blk.kind == Table)
   var stbl = @[collect(for h in blk.header.cols: $h)]
   for row in blk.rows:
     stbl.add(collect(for c in row.cols: $c))
@@ -69,6 +76,12 @@ proc `$`* (blk: Block): string =
   lines.insert(divider, 1)
   result = lines.join("\n")
 
+proc `$`* (doc: Document): string =
+  let strs = collect:
+    for blk in doc.blocks:
+      $blk
+  result = strs.join("\n")
+
 proc startChar(line: string): int =
   result = -1
   for i in 0..<line.len:
@@ -84,6 +97,8 @@ proc identify* (line: string): BlockKind =
   let start = startChar(line)
   if start < 0:
     return
+  if line[start] == '#':
+    return Heading
   if line[start] == '|':
     return Table
 
@@ -144,8 +159,6 @@ proc onlyWhitespace(lexeme: string): bool =
 
 proc parseTable* (lines: seq[string], lineIndex: var int): Block =
   result = Block(kind: Table)
-  if lines.len == 0:
-    discard
   result.header = parseColumns(lines[lineIndex])
   lineIndex += 2 # TODO: validate the table header divider 
   while lineIndex < lines.len:
@@ -153,6 +166,21 @@ proc parseTable* (lines: seq[string], lineIndex: var int): Block =
       break
     result.rows.add(parseColumns(lines[lineIndex]))
     lineIndex += 1
+
+proc parseHeading* (lines: seq[string], lineIndex: var int): Block =
+  result = Block(kind: Heading, level: 1)
+  let line = lines[lineIndex]
+  var it = line.startChar()
+  var start = it
+  assert(start >= 0)
+  while it < line.len and line[it] == '#':
+   it += 1
+  result.heading = line.substr(it, line.len - 1)
+  if it - start == 0:
+    result.level = 1
+  else:
+    result.level = (it - start)
+  lineIndex += 1
 
 proc parseBlocks* (doc: string): Document =
   result.blocks = @[]
@@ -166,20 +194,6 @@ proc parseBlocks* (doc: string): Document =
         parseText(lines, lineIndex)
       of Table:
         parseTable(lines, lineIndex)
+      of Heading:
+        parseHeading(lines, lineIndex)
     result.blocks.add(blk)
-
-when isMainModule:
-  const Doc = """
-# Music Albums
-
-| Name                  | Artist            | Rating |
-|-----------------------|-------------------|--------|
-| Exercises in Futility | Mgła              | 5.0    |
-| Reflektor             | Arcade Fire       | 4.65   |
-| Vicious Delicious     | Infected Mushroom | 4.5    |
-  """
-
-  writeFile("music.md", Doc)
-
-  let doc = parseBlocks(Doc)
-  echo doc.blocks[1]
