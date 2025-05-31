@@ -11,3 +11,6 @@ bin           = @["maindo"]
 # Dependencies
 
 requires "nim >= 2.2.4"
+
+requires "db_connector >= 0.1.0"
+requires "pretty >= 0.2.0"

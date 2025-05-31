@@ -27,3 +27,17 @@ run query
 dump table
 convert results to markdown table
 insert results into the document (or file)
+
+## Untyped tables
+
+The default for tables is to be well typed, meaning each column of each row needs to be of the same type, this is useful for data tables. The table sql is also well typed. If I want a table that allows columns of any type, I then need to build a type format for the sql tables.
+
+Each table column can be either TEXT, or varchar, depending on the size of the type.
+the syntax for the column text could be this:
+
+<type> ':' <value>
+
+int:1
+float:3.1415926
+text:blah blah blah
+
