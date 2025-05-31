@@ -4,5 +4,5 @@ t.c
 t.nim
 .env
 
-tests/test_*
+tests/test_markdown
 tmp
