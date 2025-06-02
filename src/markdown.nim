@@ -1,5 +1,4 @@
-import 
-  std / [ tables, os, strutils, options, sequtils, sugar ]
+import std/[tables, strutils, sequtils, sugar]
 
 type
   ColKind* = enum
@@ -12,9 +11,9 @@ type
       number*: float
     of Text:
       text*: string
-      
+
   Row* = object
-    cols*: seq[Col] 
+    cols*: seq[Col]
 
   MTable* = Table[string, Row]
 
@@ -43,17 +42,17 @@ type
 
   MarkdownError* = object of CatchableError
 
-template err* (msg) =
+template err*(msg) =
   raise MarkdownError.newException(msg)
 
-proc `$`* (col: Col): string =
-  case col.kind:
+proc `$`*(col: Col): string =
+  case col.kind
   of Number:
     $col.number
   of Text:
     col.text
 
-proc `$`* (blk: Block): string =
+proc `$`*(blk: Block): string =
   if blk.kind == Text:
     return blk.text
   if blk.kind == Heading:
@@ -64,19 +63,32 @@ proc `$`* (blk: Block): string =
     parts.add("```")
     return parts.join("\n")
   assert(blk.kind == Table)
-  var stbl = @[collect(for h in blk.header.cols: $h)]
+  var stbl =
+    @[
+      collect(
+        for h in blk.header.cols:
+          $h
+      )
+    ]
   for row in blk.rows:
-    stbl.add(collect(for c in row.cols: $c))
+    stbl.add(
+      collect(
+        for c in row.cols:
+          $c
+      )
+    )
   var colWidths = newSeq[int]()
   for colIdx in 0 ..< stbl[0].len:
     var maxWidth = 0
     for rowIdx in 0 ..< stbl.len:
-      maxWidth = max(maxWidth, stbl[rowIdx][colIdx].len)   
+      maxWidth = max(maxWidth, stbl[rowIdx][colIdx].len)
     colWidths.add(maxWidth)
     for rowIdx in 0 ..< stbl.len:
       stbl[rowIdx][colIdx] = stbl[rowIdx][colIdx].alignleft(maxWidth)
   var lines = collect(
-    for line in stbl: "| " & line.join(" | ") & " |")
+    for line in stbl:
+      "| " & line.join(" | ") & " |"
+  )
   var divider = "|" & repeat('-', (lines[0].len) - 2) & "|"
   var cursor = 0
   for w in colWidths:
@@ -85,7 +97,7 @@ proc `$`* (blk: Block): string =
   lines.insert(divider, 1)
   result = lines.join("\n")
 
-proc `$`* (doc: Document): string =
+proc `$`*(doc: Document): string =
   let strs = collect:
     for blk in doc.blocks:
       $blk
@@ -93,15 +105,15 @@ proc `$`* (doc: Document): string =
 
 proc startChar(line: string): int =
   result = -1
-  for i in 0..<line.len:
+  for i in 0 ..< line.len:
     if line[i] notin Whitespace:
-      return i 
+      return i
 
 proc skipWhitespace(line: string, cursor: var int) =
   while cursor < line.len and line[cursor] in Whitespace:
     inc cursor
 
-proc identify* (line: string): BlockKind =
+proc identify*(line: string): BlockKind =
   result = Text
   let start = startChar(line)
   if start < 0:
@@ -113,7 +125,7 @@ proc identify* (line: string): BlockKind =
   if line[start] == '|':
     return Table
 
-proc parseText* (lines: seq[string], lineIndex: var int): Block =
+proc parseText*(lines: seq[string], lineIndex: var int): Block =
   var start = lineIndex
   inc lineIndex
   while lineIndex < lines.len:
@@ -121,12 +133,9 @@ proc parseText* (lines: seq[string], lineIndex: var int): Block =
       break
     inc lineIndex
   let textLines = lines[start ..< lineIndex].toSeq()
-  result = Block(
-    kind: Text,
-    text: textLines.join("\n")
-  )
+  result = Block(kind: Text, text: textLines.join("\n"))
 
-proc parseColumns* (line: string): Row =
+proc parseColumns*(line: string): Row =
   result = Row(cols: @[])
   if line.len == 0:
     return
@@ -136,7 +145,7 @@ proc parseColumns* (line: string): Row =
     err("Not a table, expected '|' but got " & $line[cursor])
   cursor += 1
   while cursor < line.len:
-    skipWhitespace(line, cursor) 
+    skipWhitespace(line, cursor)
     var start = cursor
     if line[cursor] == '|':
       tokens.add(line[start ..< cursor])
@@ -144,10 +153,10 @@ proc parseColumns* (line: string): Row =
       start = cursor
       continue
     while cursor < line.len and line[cursor] != '|':
-      cursor += 1 
+      cursor += 1
     skipWhitespace(line, cursor)
     if cursor >= line.len or line[cursor] == '|':
-      let last = 
+      let last =
         if line[cursor] != '|':
           cursor - 1
         else:
@@ -168,7 +177,7 @@ proc onlyWhitespace(lexeme: string): bool =
     if c notin Whitespace:
       return false
 
-proc parseTable* (lines: seq[string], lineIndex: var int): Block =
+proc parseTable*(lines: seq[string], lineIndex: var int): Block =
   result = Block(kind: Table)
   result.header = parseColumns(lines[lineIndex])
   lineIndex += 2 # TODO: validate the table header divider 
@@ -178,14 +187,14 @@ proc parseTable* (lines: seq[string], lineIndex: var int): Block =
     result.rows.add(parseColumns(lines[lineIndex]))
     lineIndex += 1
 
-proc parseHeading* (lines: seq[string], lineIndex: var int): Block =
+proc parseHeading*(lines: seq[string], lineIndex: var int): Block =
   result = Block(kind: Heading, level: 1)
   let line = lines[lineIndex]
   var it = line.startChar()
   var start = it
   assert(start >= 0)
   while it < line.len and line[it] == '#':
-   it += 1
+    it += 1
   result.heading = line.substr(it, line.len - 1)
   if it - start == 0:
     result.level = 1
@@ -193,11 +202,11 @@ proc parseHeading* (lines: seq[string], lineIndex: var int): Block =
     result.level = (it - start)
   lineIndex += 1
 
-proc parseCode* (lines: seq[string], lineIndex: var int): Block =
+proc parseCode*(lines: seq[string], lineIndex: var int): Block =
   result = Block(kind: Code, code: "", lang: "")
   let langLine = lines[lineIndex]
   let start = startChar(langLine) + 3 # skip ```
-  result.lang = langLine[start ..< langLine.len] 
+  result.lang = langLine[start ..< langLine.len]
   inc lineIndex
   var codeLines: seq[string] = @[]
   while lineIndex < lines.len:
@@ -208,14 +217,14 @@ proc parseCode* (lines: seq[string], lineIndex: var int): Block =
     codeLines.add(line)
   result.code = codeLines.join("\n")
 
-proc parseBlocks* (doc: string): Document =
+proc parseBlocks*(doc: string): Document =
   result.blocks = @[]
   let lines = doc.split(Newlines)
   var lineIndex = 0
   while lineIndex < lines.len:
     let line = lines[lineIndex]
-    let blk = 
-      case identify(line):
+    let blk =
+      case identify(line)
       of Text:
         parseText(lines, lineIndex)
       of Table:

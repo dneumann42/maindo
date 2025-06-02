@@ -15,6 +15,21 @@ suite "Markdown parsing":
     let a = $doc.blocks[0]
     check a == code
 
+  test "We can fill in missing columns":
+    const code = """
+    | A | X | Y |
+    |---|---|---|
+    | 1 | 3 |
+    """.strip().unindent()
+    let doc = parseBlocks(code)
+    let a = $doc.blocks[0]
+    let b = """
+    | A | X | Y |
+    |---|---|---|
+    | 1 |   | 3 |
+    """.strip().unindent()
+    check a == b
+
   test "We can read and write headings":
     const code = """
     # Hello

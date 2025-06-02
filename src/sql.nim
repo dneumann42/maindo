@@ -1,28 +1,25 @@
 import markdown, strutils
 
-import db_connector / [ db_sqlite ]
+import db_connector/[db_sqlite]
 
-type
-  ScriptKind* = enum
-    Create
-    Update
-    Insert
-    Delete
+type ScriptKind* = enum
+  Create
+  Update
+  Insert
+  Delete
 
 proc getColumnType(kind: ColKind): string =
-  case kind:
-  of Number:
-    "FLOAT"
-  of Text:
-    "TEXT"
+  case kind
+  of Number: "FLOAT"
+  of Text: "TEXT"
 
-proc sql* (blk: Block, name: string, kind: ScriptKind): seq[SqlQuery] =
+proc sql*(blk: Block, name: string, kind: ScriptKind): seq[SqlQuery] =
   assert(blk.kind == Table)
 
   if blk.rows.len == 0:
     return
 
-  var lines = @["CREATE TABLE IF NOT EXISTS " & name & "("] 
+  var lines = @["CREATE TABLE IF NOT EXISTS " & name & "("]
   for i in 0 ..< blk.header.cols.len:
     let headerName = blk.header.cols[i].text.strip()
     let valueCol = blk.rows[0].cols[i]
@@ -40,8 +37,8 @@ proc sql* (blk: Block, name: string, kind: ScriptKind): seq[SqlQuery] =
     for i in 0 ..< blk.header.cols.len:
       let headerName = blk.header.cols[i].text.strip()
       let valueCol = blk.rows[rowIdx].cols[i]
-      case valueCol.kind:
-      of Number: 
+      case valueCol.kind
+      of Number:
         values.add($valueCol.number)
       of Text:
         values.add("'" & valueCol.text & "'")

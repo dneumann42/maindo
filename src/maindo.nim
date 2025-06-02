@@ -1,5 +1,5 @@
-import std / [ parseopt, os, options, strutils, enumerate ]
-import db_connector / [ db_sqlite ]
+import std/[parseopt, os, options, strutils, enumerate]
+import db_connector/[db_sqlite]
 
 import markdown, sql, pretty
 
@@ -18,7 +18,8 @@ proc execute(file: string, codeBlockName: string) =
   var replaceNext = none(Block)
 
   proc findTableName(i: int): Option[string] =
-    if i <= 0: return
+    if i <= 0:
+      return
     for idx in countdown(i - 1, 0):
       let prev = doc.blocks[idx]
       if prev.kind != Heading:
@@ -55,15 +56,14 @@ proc execute(file: string, codeBlockName: string) =
 
       let codeName = findTableName(i).get("")
       let rows = db.getAllRows(sql(b.code))
-      
+
       var resultsTable = Block(kind: Table)
       for row in rows:
         var rrow = markdown.Row()
         if resultsTable.header.cols.len == 0:
-          for idx, col in enumerate(row): 
-            resultsTable.header.cols.add(
-              Col(kind: Text, text: "_"& $idx))
-        for col in row: 
+          for idx, col in enumerate(row):
+            resultsTable.header.cols.add(Col(kind: Text, text: "_" & $idx))
+        for col in row:
           var ccol = Col(kind: Text, text: col)
           rrow.cols.add(ccol)
         resultsTable.rows.add(rrow)
@@ -89,8 +89,7 @@ proc execute(file: string, codeBlockName: string) =
   doc.blocks = newBlocks
   writeFile(file, $doc)
 
-proc cli () =
-  let lines = @[" ### Hello"]
+proc cli() =
   let params = commandLineParams()
   var p = initOptParser(params)
 
@@ -100,7 +99,7 @@ proc cli () =
 
   while true:
     p.next()
-    case p.kind:
+    case p.kind
     of cmdEnd:
       break
     of cmdShortOption, cmdLongOption:
@@ -108,7 +107,6 @@ proc cli () =
         shouldParse = true
       if p.key == "e":
         executeBlock = some(p.val)
-          
     of cmdArgument:
       files.add(p.key)
 
